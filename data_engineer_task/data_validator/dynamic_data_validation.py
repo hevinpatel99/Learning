@@ -41,6 +41,7 @@ class DataValidation:
         # validate required columns
         if not self._validate_required_columns(required_columns):
             return False
+
         self._handle_null_values(required_columns, default_values)
 
         # # Validate email format if 'EMAIL' column is present
@@ -113,7 +114,7 @@ class DataValidation:
             logger.error(f"Invalid email format found in rows: {invalid_emails.index.tolist()}")
             return False
 
-        return True
+        # return True
 
     def _validate_data_types(self, expected_data_types):
         """Validate the data types for each column dynamically."""
@@ -128,20 +129,52 @@ class DataValidation:
                         self.data_frame[col] = pd.to_numeric(self.data_frame[col], errors='coerce').astype(
                             'int64')  # for nullable integers
                         self.data_frame[col] = self.data_frame[col].fillna(0)
-                    elif expected_type == 'datetime64[ns]':
-                        # Print sample of current values for debugging
+                    # elif expected_type in ['datetime64[ns]', 'datetime64[D]']:
+                    #     # Print sample of current values for debugging
+                    #     logger.info(
+                    #         f"Sample values for '{col}' before conversion: {self.data_frame[col].head().tolist()}")
+                    #
+                    #     # Convert to datetime safely without chaining
+                    #     self.data_frame[col] = pd.to_datetime(self.data_frame[col], errors='coerce')
+                    #
+                    #     # Replace NaT with a default value
+                    #     # Replace NaT with the desired default value (adjustable)
+                    #     # default_date = pd.NaT  # or pd.NaT if no default date
+                    #     self.data_frame[col] = self.data_frame[col].fillna('NaT')
+                    #
+                    #     # Check final dtype and log results
+                    #     logger.info(
+                    #         f"Sample values for '{col}' after conversion: {self.data_frame[col].head().tolist()}")
+
+                    elif expected_type in ['datetime64[ns]', 'datetime64[D]']:
                         logger.info(
                             f"Sample values for '{col}' before conversion: {self.data_frame[col].head().tolist()}")
 
-                        # Convert to datetime safely without chaining
+                        # Safely handle datetime parsing including timezone-aware timestamps
+                        def ensure_datetime_ns(value):
+                            if pd.isna(value):
+                                return pd.NaT
+
+                            try:
+                                # Normalize Zulu time (UTC) by removing 'Z'
+                                if isinstance(value, str) and value.endswith('Z'):
+                                    value = value[:-1]
+
+                                return pd.to_datetime(value, errors='coerce', utc=True).tz_localize(None)
+
+                            except Exception:
+                                return pd.NaT
+
+                        # Apply conversion to handle mixed formats
+                        self.data_frame[col] = self.data_frame[col].apply(ensure_datetime_ns)
+
+                        # Check if there are still invalid dates
+                        if self.data_frame[col].isnull().any():
+                            logger.warning(f"Invalid dates found and converted to NaT in column '{col}'.")
+
+                        # Ensure the correct datetime64 dtype
                         self.data_frame[col] = pd.to_datetime(self.data_frame[col], errors='coerce')
 
-                        # Replace NaT with a default value
-                        # Replace NaT with the desired default value (adjustable)
-                        # default_date = pd.NaT  # or pd.NaT if no default date
-                        self.data_frame[col] = self.data_frame[col].fillna('NaT')
-
-                        # Check final dtype and log results
                         logger.info(
                             f"Sample values for '{col}' after conversion: {self.data_frame[col].head().tolist()}")
 
@@ -158,85 +191,28 @@ class DataValidation:
                     return False
         return True
 
-    # def _formate_date(self):
-    #     logger.info(f"Before conversion - First few 'DOB' values: {self.data_frame['DOB'].head()}")
-    #     print(f"{self.data_frame['DOB']}")
-    #
-    #     # Log rows with invalid DOB values before conversion
-    #     invalid_dob_rows = self.data_frame[self.data_frame['DOB'].isna()]
-    #     if not invalid_dob_rows.empty:
-    #         logger.warning(f"Rows with invalid 'DOB' values before conversion: {invalid_dob_rows}")
-    #
-    #     # Attempt to convert the 'DOB' column to datetime64[ns], invalid entries will be set to NaT
-    #     self.data_frame['DOB'] = pd.to_datetime(self.data_frame['DOB'], errors='coerce')
-    #
-    #     # Log the result after conversion
-    #     logger.info(f"After conversion - First few 'DOB' values: {self.data_frame['DOB'].head()}")
-    #
-    #     # Check if any values are invalid (NaT)
-    #     if self.data_frame['DOB'].isnull().any():
-    #         logger.warning("Some values in 'DOB' column could not be converted and are now NaT.")
-    #         return False
-    #
-    #     # Format the 'DOB' column to 'dd-mm-yyyy' after checking for NaT
-    #     self.data_frame['DOB'] = self.data_frame['DOB'].dt.strftime('%d-%m-%Y')
-    #
-    #     logger.info("Converted 'DOB' column to datetime64[ns] and formatted it.")
-    #     return True
-
     def _formate_date(self, col):
-
-        print(f"DATE TIME HANDLING --- {self.data_frame[col]}")
-        """Dynamically handle date columns and format them."""
+        """Dynamically handle date columns and format them to dd-mm-yyyy."""
         if col not in self.data_frame.columns:
             logger.error(f"Column '{col}' is missing in the DataFrame.")
             return False
 
         logger.info(f"Attempting to convert '{col}' column to datetime...")
 
-        # Attempt to convert the column to datetime with invalid entries set to NaT
+        # Convert the column to datetime, invalid entries are set to NaT
         self.data_frame[col] = pd.to_datetime(self.data_frame[col], errors='coerce')
+        # self.data_frame[col] = pd.to_datetime(self.data_frame[col], format="ISO8601", errors='coerce')
 
-        print(f"DATE TIME HANDLING 2222--- {self.data_frame[col]}")
-
-        # Check if any invalid dates exist (NaT)
+        # Check if there are invalid dates (NaT) and log a warning
         if self.data_frame[col].isnull().any():
             logger.warning(f"Invalid dates found and converted to NaT in column '{col}'.")
 
-        # Format valid date columns to 'dd-mm-yyyy'
-        # if self.data_frame[col].dtype == 'datetime64[ns]':
-        #     self.data_frame[col] = self.data_frame[col].dt.strftime('%d-%m-%Y')
-        #     logger.info(f"Formatted '{col}' to 'dd-mm-yyyy'.")s
+        # Format valid dates to 'dd-mm-yyyy' and leave NaT as NaT
+        # self.data_frame[col] = self.data_frame[col].apply(
+        #     lambda x: x.strftime('%d-%m-%Y') if pd.notna(x) else pd.NaT
+        # )
 
-        if pd.api.types.is_datetime64_any_dtype(self.data_frame[col]):
-            # Format dates, keeping NaT entries intact
-            self.data_frame[col] = self.data_frame[col].apply(
-                lambda x: x.strftime('%d-%m-%Y') if not pd.isna(x) or pd.notna(x) else pd.NaT
-            )
+        self.data_frame[col] = self.data_frame[col].dt.strftime("%d-%m-%Y")
 
-            print(f"DATE TIME HANDLING 33333--- {self.data_frame[col]}")
-            logger.info(f"Formatted '{col}' to 'dd-mm-yyyy'.")
+        logger.info(f"Formatted '{col}' to 'dd-mm-yyyy'.")
         return True
-
-    # def handle_date_columns(self):
-    #     # Select columns with potential date-like data
-    #     date_columns = []
-    #
-    #     # Detect columns that can be converted to datetime
-    #     for col in self.data_frame.columns:
-    #         try:
-    #             pd.to_datetime(self.data_frame[col], errors='raise')
-    #             date_columns.append(col)
-    #         except (ValueError, TypeError):
-    #             continue
-    #
-    #     # Process date columns if found
-    #     for col in date_columns:
-    #         try:
-    #             self.data_frame[col] = pd.to_datetime(self.data_frame[col],
-    #                                                   errors='coerce')  # Coerce invalid dates to NaT
-    #             if self.data_frame[col].isna().any():
-    #                 logger.warning(f"Invalid dates found in column '{col}'")
-    #         except Exception as e:
-    #             logger.error(f"Error processing column '{col}': {e}")
-    #     return self.data_frame
