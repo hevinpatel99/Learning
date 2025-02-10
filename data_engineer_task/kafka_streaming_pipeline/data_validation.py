@@ -1,28 +1,35 @@
 import csv
+import time
 from io import StringIO
 
 import pandas as pd
 from confluent_kafka import Consumer, KafkaException, KafkaError
 
-from data_validator.dynamic_data_validation import DataValidation
-from kafka_streaming_pipeline.config import KAFKA_SERVER, RAW_TOPIC
-from kafka_streaming_pipeline.utils import setup_logger
+from data_engineer_task.data_validator.dynamic_data_validation import DataValidation
+from data_engineer_task.kafka_streaming_pipeline.config import KAFKA_SERVER, RAW_TOPIC, VALIDATED_TOPIC
+from data_engineer_task.kafka_streaming_pipeline.utils import setup_logger, create_kafka_producer, delivery_report
 
 # Setup logger
-logger = setup_logger("FileIngestionConsumer", "file_ingestion_consumer.log")
+logger = setup_logger("FileIngestionConsumer",
+                      "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/file_ingestion_consumer.log")
 
 
 class FileIngestionConsumer:
     def __init__(self):
         # Create a Kafka Consumer instance
+        self.producer = create_kafka_producer(KAFKA_SERVER)
         self.consumer = Consumer({
             'bootstrap.servers': KAFKA_SERVER,  # Kafka server address
             'group.id': 'file-ingestion-consumer-group',  # Consumer group ID
             'auto.offset.reset': 'earliest'  # Start consuming from the earliest offset
         })
         self.topic = RAW_TOPIC  # Topic to consume from
+        self.out_topic = VALIDATED_TOPIC
 
     def consume_messages(self):
+
+        idle_count = 0
+        idle_threshold = 10  # Stop after 10 consecutive idle polls
         try:
             # Subscribe to the Kafka topic
             self.consumer.subscribe([self.topic])
@@ -35,7 +42,13 @@ class FileIngestionConsumer:
                 msg = self.consumer.poll(timeout=1.0)  # Timeout is in seconds
 
                 if msg is None:
+                    print(idle_count)
                     # No message received within the timeout period
+                    idle_count += 1
+                    logger.info("No message received within timeout.")
+                    if idle_count >= idle_threshold:
+                        logger.info("No new messages detected. Stopping the consumer.")
+                        break
                     continue
                 elif msg.error():
                     # If there is an error in the message
@@ -46,6 +59,7 @@ class FileIngestionConsumer:
                     else:
                         raise KafkaException(msg.error())
                 else:
+                    idle_count = 0
                     # Process the message (e.g., print, log, etc.)
                     logger.info(f"Received message from topic: {msg.topic()}, partition: {msg.partition()}, "
                                 f"offset: {msg.offset()} with key: {msg.key().decode('utf-8')}")
@@ -56,9 +70,15 @@ class FileIngestionConsumer:
                     value = msg.value()
                     input_file_content = value.decode('utf-8') if value else None
 
+                    # Process the file and produce validated data
+                    self.parsing_text_to_csv_file(input_file_content, file_name)
+
+                    time.sleep(1)
+
                     # logger.info(f"Message value: {msg.value().decode('utf-8')}")
                     print(f"key: {file_name}")
-                    self.parsing_text_to_csv_file(input_file_content, file_name)
+
+
 
         except Exception as e:
             logger.error(f"An error occurred while consuming messages: {e}")
@@ -68,8 +88,8 @@ class FileIngestionConsumer:
             self.consumer.close()
             logger.info("Consumer closed successfully.")
 
-    @staticmethod
-    def parsing_text_to_csv_file(input_file_content, file_name):
+    # @staticmethod
+    def parsing_text_to_csv_file(self, input_file_content, file_name):
         try:
             logger.info(f"Processing file: {file_name} from text to CSV.")
 
@@ -110,19 +130,36 @@ class FileIngestionConsumer:
             # Convert the DataFrame to a CSV string (without index)
             # csv_data = df.to_csv(index=False)
 
+            output_file_name = file_name.replace('.txt', '.json').encode('utf-8')
+
             json_data = data_frame.to_json(orient="records",
                                            lines=True)  # JSON format as records (list of dictionaries)
-            print(f"json : {json_data}")
-            # Create the output file name by replacing .txt with .csv
-            # output_file_name = file_name.replace('.txt', '.csv')
-            # logger.info(f'Output file name: {output_file_name}')
-            # return {"file_name": output_file_name, "json_data": validate_data}
+
+            logger.info(f"Output filename : {output_file_name}")
+
+            self.produce_validated_data(output_file_name, json_data)
 
         except Exception as e:
             logger.error(f"Error processing file {file_name}: {e}")
             return None
 
+    def produce_validated_data(self, output_file_name, json_data):
+        try:
+            logger.info(f"Producing validated data for file: {output_file_name} to topic: {self.out_topic}")
 
+            # Send as single record or list of JSON
+
+            self.producer.produce(
+                self.out_topic,
+                key=output_file_name,
+                value=str(json_data).encode('utf-8')
+            )
+
+            self.producer.flush()
+            logger.info(f"Data successfully produced to topic: {self.out_topic} for file: {output_file_name}")
+
+        except Exception as e:
+            logger.error(f"Error producing validated data for file {output_file_name}: {e}")
 
 
 # Main function to run the consumer

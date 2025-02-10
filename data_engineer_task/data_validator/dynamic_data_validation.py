@@ -1,11 +1,11 @@
 import logging
 import pandas as pd
-from dateutil import parser
 
-from file_config.file_validation_config import FILE_CONFIG  # Import the file configuration
+from data_engineer_task.file_config.file_validation_config import FILE_CONFIG  # Import the file configuration
+from data_engineer_task.kafka_streaming_pipeline.utils import setup_logger
 
-logger = logging.getLogger('data_validation_process')
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = setup_logger("DataValidation", "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/file_validation.log")  # Create a logger for this module
+
 
 
 class DataValidation:

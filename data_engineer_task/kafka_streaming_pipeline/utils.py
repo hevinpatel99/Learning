@@ -1,6 +1,8 @@
 # Configure logging
 import logging
 
+from confluent_kafka import Producer
+
 
 def setup_logger(name, log_file):
     """
@@ -31,4 +33,28 @@ def setup_logger(name, log_file):
         logger.addHandler(file_handler)
         logger.addHandler(console_handler)
 
+    # Prevent log propagation to the root logger
+    logger.propagate = False
+
     return logger
+
+def create_kafka_producer(bootstrap_servers):
+    """
+    Create and return a Kafka Producer instance.
+    """
+    try:
+        producer = Producer({'bootstrap.servers': bootstrap_servers})
+        logging.info("Kafka Producer created successfully.")
+        return producer
+    except Exception as e:
+        logging.error(f"Error creating Kafka Producer: {e}")
+        raise
+
+
+def delivery_report(err, msg, logger):
+    """Delivery report callback to track message delivery status."""
+    if err is not None:
+        logger.error(f"Message delivery failed: {err}")
+    else:
+        logger.info(f"Message delivered to {msg.topic()} partition {msg.partition()}"
+                    f"at offset {msg.offset()} with key {msg.key().decode('utf-8')}")

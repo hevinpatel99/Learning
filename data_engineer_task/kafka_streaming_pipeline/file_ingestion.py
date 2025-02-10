@@ -1,18 +1,20 @@
 import os
 import time
 from confluent_kafka import Producer, KafkaException
-from kafka_streaming_pipeline.utils import setup_logger
+from data_engineer_task.kafka_streaming_pipeline.utils import setup_logger, create_kafka_producer
 
-from kafka_streaming_pipeline.config import KAFKA_SERVER, RAW_TOPIC, INPUT_DIR
+from data_engineer_task.kafka_streaming_pipeline.config import KAFKA_SERVER, RAW_TOPIC, INPUT_DIR
 
-logger = setup_logger("FileIngestionPipeline", "file_ingestion.log")  # Create a logger for this module
+from data_engineer_task.kafka_streaming_pipeline.utils import delivery_report
+
+logger = setup_logger("FileIngestionPipeline", "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/file_ingestion.log")  # Create a logger for this module
 
 
 class FileIngestionPipeline:
     def __init__(self, input_dir):
         # Constructor to initialize the object with the input directory path
         self.input_dir = input_dir  # Instance attribute
-        self.producer = Producer({'bootstrap.servers': KAFKA_SERVER})
+        self.producer = create_kafka_producer(KAFKA_SERVER)
         self.topic = RAW_TOPIC
 
     # Method to iterate over the files in the provided directory
@@ -66,7 +68,7 @@ class FileIngestionPipeline:
                             self.topic,
                             key=key,
                             value=file_content,
-                            callback=self.delivery_report
+                            callback=lambda err, msg: delivery_report(err, msg, logger)
                         )
                         logger.info(f"Message sent from file: {file_name}")
                     except KafkaException as ke:
@@ -91,14 +93,14 @@ class FileIngestionPipeline:
             logger.error(f"An error occurred while sending messages: {e}")
             raise
 
-    @staticmethod
-    def delivery_report(err, msg):
-        """Delivery report callback to track message delivery status."""
-        if err is not None:
-            logger.error(f"Message delivery failed: {err}")
-        else:
-            logger.info(f"Message delivered to {msg.topic()} partition {msg.partition()}"
-                        f"at offset {msg.offset()} with key {msg.key().decode('utf-8')}")
+    # @staticmethod
+    # def delivery_report(err, msg):
+    #     """Delivery report callback to track message delivery status."""
+    #     if err is not None:
+    #         logger.error(f"Message delivery failed: {err}")
+    #     else:
+    #         logger.info(f"Message delivered to {msg.topic()} partition {msg.partition()}"
+    #                     f"at offset {msg.offset()} with key {msg.key().decode('utf-8')}")
 
 
 if __name__ == "__main__":
