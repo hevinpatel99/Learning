@@ -25,5 +25,5 @@ def delete_topic(topic_names):
         print(f"Unexpected error: {e}")
 
 # Example usage
-topic_names =['raw-text-files','__consumer_offsets'] # Replace with your topic name
+topic_names =['sanitized-data','validated-data','raw-text-files','__consumer_offsets'] # Replace with your topic name
 delete_topic(topic_names)

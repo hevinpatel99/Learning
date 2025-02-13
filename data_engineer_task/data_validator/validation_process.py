@@ -1,11 +1,12 @@
-import logging
+import os
+
 import pandas as pd
 
-from data_engineer_task.file_config.file_validation_config import FILE_CONFIG  # Import the file configuration
+from data_engineer_task.config.file_validation_config import FILE_CONFIG  # Import the file configuration
 from data_engineer_task.kafka_streaming_pipeline.utils import setup_logger
 
-logger = setup_logger("DataValidation", "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/file_validation.log")  # Create a logger for this module
-
+logger = setup_logger("DataValidation",
+                      "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/file_validation.log")  # Create a logger for this module
 
 
 class DataValidation:
@@ -24,14 +25,14 @@ class DataValidation:
         Returns True if the data is valid, False otherwise.
         """
 
-        logger.info(f"FILE_NAME ---- {self.file_name}")
+        name = os.path.splitext(self.file_name)[0]
+
         # Check if file_name is in the configuration
-        if self.file_name not in FILE_CONFIG:
+        if name not in FILE_CONFIG:
             logger.warning(f"Data validation skipped for unsupported file: {self.file_name}")
             return False
 
-        # Fetch file-specific config
-        config = FILE_CONFIG[self.file_name]
+        config = FILE_CONFIG[name]
         required_columns = config['REQUIRED_COLUMNS']
         default_values = config['DEFAULT_VALUES']
         expected_data_types = config['EXPECTED_DATA_TYPES']
@@ -42,7 +43,8 @@ class DataValidation:
         if not self._validate_required_columns(required_columns):
             return False
 
-        self._handle_null_values(required_columns, default_values)
+        if not self._handle_null_values(required_columns, default_values):
+            return False
 
         # # Validate email format if 'EMAIL' column is present
         # if 'EMAIL' in required_columns and not self._validate_email_format():
@@ -52,14 +54,14 @@ class DataValidation:
         if not self._validate_data_types(expected_data_types):
             return False
 
-        date_columns = ['DOB', 'START_DATE', 'END_DATE', 'DATE', 'DATE_OF_BIRTH', 'DATE_OF_DEATH', 'TIMESTAMP']
-        date_columns_to_convert = [col for col in date_columns if col in required_columns]
+        # date_columns = ['DOB', 'START_DATE', 'END_DATE', 'DATE', 'DATE_OF_BIRTH', 'DATE_OF_DEATH', 'TIMESTAMP']
+        # date_columns_to_convert = [col for col in date_columns if col in required_columns]
 
-        if date_columns_to_convert:
-            for col in date_columns_to_convert:
-                if not self._formate_date(col):
-                    logger.error(f"{col} conversion failed. Invalid data encountered.")
-                    return False
+        # if date_columns_to_convert:
+        #     for col in date_columns_to_convert:
+        #         if not self._formate_date(col):
+        #             logger.error(f"{col} conversion failed. Invalid data encountered.")
+        #             return False
 
         return True
 
@@ -100,6 +102,8 @@ class DataValidation:
                 self.data_frame[col] = self.data_frame[col].fillna(default_values.get(col, 'Unknown'))
             else:
                 logger.error(f"Column {col} is missing in the DataFrame.")
+                return False  # Return False if a required column is missing
+        return True  # Return True if null values were handled successfully
 
     def _validate_email_format(self):
         """Validate the format of the email address."""
@@ -114,7 +118,7 @@ class DataValidation:
             logger.error(f"Invalid email format found in rows: {invalid_emails.index.tolist()}")
             return False
 
-        # return True
+        return True
 
     def _validate_data_types(self, expected_data_types):
         """Validate the data types for each column dynamically."""
@@ -191,28 +195,28 @@ class DataValidation:
                     return False
         return True
 
-    def _formate_date(self, col):
-        """Dynamically handle date columns and format them to dd-mm-yyyy."""
-        if col not in self.data_frame.columns:
-            logger.error(f"Column '{col}' is missing in the DataFrame.")
-            return False
-
-        logger.info(f"Attempting to convert '{col}' column to datetime...")
-
-        # Convert the column to datetime, invalid entries are set to NaT
-        self.data_frame[col] = pd.to_datetime(self.data_frame[col], errors='coerce')
-        # self.data_frame[col] = pd.to_datetime(self.data_frame[col], format="ISO8601", errors='coerce')
-
-        # Check if there are invalid dates (NaT) and log a warning
-        if self.data_frame[col].isnull().any():
-            logger.warning(f"Invalid dates found and converted to NaT in column '{col}'.")
-
-        # Format valid dates to 'dd-mm-yyyy' and leave NaT as NaT
-        # self.data_frame[col] = self.data_frame[col].apply(
-        #     lambda x: x.strftime('%d-%m-%Y') if pd.notna(x) else pd.NaT
-        # )
-
-        self.data_frame[col] = self.data_frame[col].dt.strftime("%d-%m-%Y")
-
-        logger.info(f"Formatted '{col}' to 'dd-mm-yyyy'.")
-        return True
+    # def _formate_date(self, col):
+    #     """Dynamically handle date columns and format them to dd-mm-yyyy."""
+    #     if col not in self.data_frame.columns:
+    #         logger.error(f"Column '{col}' is missing in the DataFrame.")
+    #         return False
+    #
+    #     logger.info(f"Attempting to convert '{col}' column to datetime...")
+    #
+    #     # Convert the column to datetime, invalid entries are set to NaT
+    #     self.data_frame[col] = pd.to_datetime(self.data_frame[col], errors='coerce')
+    #     # self.data_frame[col] = pd.to_datetime(self.data_frame[col], format="ISO8601", errors='coerce')
+    #
+    #     # Check if there are invalid dates (NaT) and log a warning
+    #     if self.data_frame[col].isnull().any():
+    #         logger.warning(f"Invalid dates found and converted to NaT in column '{col}'.")
+    #
+    #     self.data_frame[col] = self.data_frame[col].fillna(pd.Timestamp("1900-01-01"))
+    #
+    #     # Format valid dates to "YYYY-MM-DD"
+    #     self.data_frame[col] = self.data_frame[col].dt.strftime("%Y-%m-%d")
+    #
+    #     self.data_frame[col] = self.data_frame[col].astype(str)
+    #
+    #     logger.info(f"Formatted '{col}' to 'dd-mm-yyyy'.")
+    #     return True

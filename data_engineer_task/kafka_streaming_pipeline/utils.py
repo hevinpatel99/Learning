@@ -1,7 +1,7 @@
 # Configure logging
 import logging
 
-from confluent_kafka import Producer
+from confluent_kafka import Producer, Consumer
 
 
 def setup_logger(name, log_file):
@@ -11,7 +11,6 @@ def setup_logger(name, log_file):
     Args:
         name (str): The name of the logger (e.g., module name).
         log_file (str): Path to the log file.
-
 
     Returns:
         logging.Logger: Configured logger instance.
@@ -38,16 +37,37 @@ def setup_logger(name, log_file):
 
     return logger
 
-def create_kafka_producer(bootstrap_servers):
+
+def create_kafka_producer(bootstrap_servers, logger):
     """
     Create and return a Kafka Producer instance.
     """
     try:
         producer = Producer({'bootstrap.servers': bootstrap_servers})
-        logging.info("Kafka Producer created successfully.")
+        logger.info("Kafka Producer created successfully.")
         return producer
     except Exception as e:
         logging.error(f"Error creating Kafka Producer: {e}")
+        raise
+
+
+def create_kafka_consumer(bootstrap_servers, group_id, logger, auto_offset_reset='earliest'):
+    """
+        Create and return a Kafka Consumer instance.
+        """
+    try:
+        consumer_config = {
+            'bootstrap.servers': bootstrap_servers,
+            'group.id': group_id,
+            'auto.offset.reset': auto_offset_reset,
+        }
+
+        consumer = Consumer(consumer_config)
+        logger.info(f"Kafka Consumer created for group: {group_id}")
+        return consumer
+
+    except Exception as e:
+        logger.error(f"Error creating Kafka consumer: {e}")
         raise
 
 

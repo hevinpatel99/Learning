@@ -1,49 +1,107 @@
+#version: '3.8'
+#
+## Docker Compose file for setting up Zookeeper using the Confluent Platform's Zookeeper image.
+#
+#services:
+#
+#  # Docker image from the Confluent platform, which provides a pre-configured Zookeeper instance.
+#  zookeeper:
+#    image: confluentinc/cp-zookeeper:latest
+#    container_name: zookeeper-container
+#    environment:
+#      # client connection port for Zookeeper.
+#      # allows Kafka and other services to communicate with Zookeeper.
+#      ZOOKEEPER_CLIENT_PORT: 2181
+#      # Zookeeper enables or restricts access to Four-Letter Word (4LW) commands, which are simple commands used to monitor and manage a Zookeeper server.
+#      # This setting allows full access to Zookeeper's administrative commands.
+#      # By Default disable.
+#      # "ruok, mntr, stat" - 4lw commands
+#      4LW_COMMANDS_WHITELIST: "*"
+#    ports:
+#      # allow external access to Zookeeper.
+#      - "2181:2181"
+#    restart: unless-stopped
+#
+#
+#  kafka:
+#    image: confluentinc/cp-kafka:latest  # Define the Kafka image to use
+#    container_name: kafka-container
+#    # Ensures Zookeeper starts before Kafka because Kafka depends on it.
+#    depends_on:
+#      - zookeeper
+#    environment:
+#      # Specifies the Zookeeper instance that Kafka will connect to for managing brokers and metadata.
+#      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+#      # Kafka will listen for connections on all network interfaces (0.0.0.0) on port 9092.
+#      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+#      # Kafka will advertise itself as localhost:9092, which clients should use to connect.
+#      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+#      # The replication factor for Kafka’s offset storage is set to 1 (not fault-tolerant, only suitable for single-node setups).
+#      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#    ports:
+#      # Exposes Kafka’s port 9092 to the host system.
+#      - "9092:9092"
+#    restart: unless-stopped
+#
+## In Apache Kafka, PLAINTEXT refers to an unencrypted, unauthenticated communication protocol used for broker-client communication. It allows producers,
+## consumers, and other clients to connect to Kafka brokers without SSL/TLS encryption or SASL authentication.
+#
+#
+
+
 version: '3.8'
 
-# Docker Compose file for setting up Zookeeper using the Confluent Platform's Zookeeper image.
-
 services:
-
-  # Docker image from the Confluent platform, which provides a pre-configured Zookeeper instance.
+  # Zookeeper service for Kafka coordination
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper-container
     environment:
-      # client connection port for Zookeeper.
-      # allows Kafka and other services to communicate with Zookeeper.
       ZOOKEEPER_CLIENT_PORT: 2181
-      # Zookeeper enables or restricts access to Four-Letter Word (4LW) commands, which are simple commands used to monitor and manage a Zookeeper server.
-      # This setting allows full access to Zookeeper's administrative commands.
-      # By Default disable.
-      # "ruok, mntr, stat" - 4lw commands
-      4LW_COMMANDS_WHITELIST: "*"
+      4LW_COMMANDS_WHITELIST: "*"  # Allows full access to admin commands
     ports:
-      # allow external access to Zookeeper.
       - "2181:2181"
+    networks:
+      - kafka-cassandra-network
     restart: unless-stopped
 
-
+  # Kafka service for message streaming
   kafka:
-    image: confluentinc/cp-kafka:latest  # Define the Kafka image to use
+    image: confluentinc/cp-kafka:latest
     container_name: kafka-container
-    # Ensures Zookeeper starts before Kafka because Kafka depends on it.
     depends_on:
       - zookeeper
     environment:
-      # Specifies the Zookeeper instance that Kafka will connect to for managing brokers and metadata.
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # Kafka will listen for connections on all network interfaces (0.0.0.0) on port 9092.
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      # Kafka will advertise itself as localhost:9092, which clients should use to connect.
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      # The replication factor for Kafka’s offset storage is set to 1 (not fault-tolerant, only suitable for single-node setups).
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
-      # Exposes Kafka’s port 9092 to the host system.
       - "9092:9092"
+    networks:
+      - kafka-cassandra-network
     restart: unless-stopped
 
-# In Apache Kafka, PLAINTEXT refers to an unencrypted, unauthenticated communication protocol used for broker-client communication. It allows producers,
-# consumers, and other clients to connect to Kafka brokers without SSL/TLS encryption or SASL authentication.
+  # Cassandra service for database storage
+  cassandra:
+    image: cassandra:latest
+    container_name: cassandra-container
+    environment:
+      - CASSANDRA_CLUSTER_NAME=TestCluster
+      - CASSANDRA_LISTEN_ADDRESS=cassandra-container
+      - CASSANDRA_BROADCAST_ADDRESS=cassandra-container
+      - CASSANDRA_RPC_ADDRESS=0.0.0.0
+    ports:
+      - "9042:9042"
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    networks:
+      - kafka-cassandra-network
+    restart: unless-stopped
 
+volumes:
+  cassandra-data:
 
+networks:
+  kafka-cassandra-network:
+    driver: bridge

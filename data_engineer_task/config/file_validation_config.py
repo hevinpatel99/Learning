@@ -1,20 +1,20 @@
 FILE_CONFIG = {
-    'patients.txt': {
-        'REQUIRED_COLUMNS': ['GESTAGE', 'CITY', 'APARTMENT', 'STREET', 'CELL', 'DOB', 'REGION', 'INITIAL', 'PID',
+    'patients': {
+        'REQUIRED_COLUMNS': ['CITY', 'APARTMENT', 'STREET', 'CELL', 'DOB', 'REGION', 'INITIAL', 'PID',
                              'YOB', 'PCODE', 'RACE', 'GENDER', 'HOME', 'COUNTRY', 'EMAIL', 'LNAME', 'FNAME'],
         'DEFAULT_VALUES': {
             'GESTAGE': 0.0, 'CITY': 'Unknown', 'APARTMENT': 'N/A', 'STREET': 'N/A', 'CELL': 'N/A',
             'DOB': 'NaT', 'REGION': 'Unknown', 'INITIAL': 'N/A', 'PID': 0, 'YOB': 0,
-            'PCODE': '00000', 'RACE': 'Unknown', 'GENDER': 'Unknown', 'HOME': 'N/A', 'COUNTRY': 'Unknown',
+            'PCODE': 000000, 'RACE': 'Unknown', 'GENDER': 'Unknown', 'HOME': 'N/A', 'COUNTRY': 'Unknown',
             'EMAIL': 'no-reply@example.com', 'LNAME': 'Unknown', 'FNAME': 'Unknown',
         },
         'EXPECTED_DATA_TYPES': {
             'GESTAGE': 'float64', 'CITY': 'object', 'APARTMENT': 'object', 'STREET': 'object', 'CELL': 'object',
             'DOB': 'datetime64[ns]', 'REGION': 'object', 'INITIAL': 'object', 'PID': 'object', 'YOB': 'int64',
-            'PCODE': 'object', 'RACE': 'object', 'GENDER': 'object', 'HOME': 'object', 'COUNTRY': 'object',
+            'PCODE': 'int64', 'RACE': 'object', 'GENDER': 'object', 'HOME': 'object', 'COUNTRY': 'object',
             'EMAIL': 'object', 'LNAME': 'object', 'FNAME': 'object',
         }
-    }, 'allergies.txt': {
+    }, 'allergies': {
         'REQUIRED_COLUMNS': ['PID', 'STATEMENT', 'TYPE', 'ALLERGEN', 'SYSTEM', 'CODE', 'START_DATE', 'END_DATE',
                              'REACTION', 'SNOMED', 'SEVERITY'],
         'DEFAULT_VALUES': {
@@ -27,7 +27,7 @@ FILE_CONFIG = {
             'START_DATE': 'NaT',  # Default start date
             'END_DATE': 'NaT',  # End date may be optional
             'REACTION': 'Unknown reaction',
-            'SNOMED': 'Unknown',
+            'SNOMED': 0,
             'SEVERITY': 'unknown'
         },
         'EXPECTED_DATA_TYPES': {
@@ -40,11 +40,11 @@ FILE_CONFIG = {
             'START_DATE': 'datetime64[ns]',
             'END_DATE': 'datetime64[ns]',  # Optional, could be nullable
             'REACTION': 'object',
-            'SNOMED': 'object',  # If the SNOMED code is numeric
+            'SNOMED': 'int64',  # If the SNOMED code is numeric
             'SEVERITY': 'object'
         }
     },
-    'labs.txt': {
+    'labs': {
         'REQUIRED_COLUMNS': ['PID', 'DATE', 'LOINC', 'SCALE', 'NAME', 'VALUE', 'LOW', 'HIGH', 'UNITS'],
         'DEFAULT_VALUES': {
             'PID': 0,
@@ -69,11 +69,11 @@ FILE_CONFIG = {
             'UNITS': 'object'
         }
     },
-    'meds.txt': {
-        'REQUIRED_COLUMNS': ['ID', 'PID', 'START_DATE', 'END_DATE', 'RXNORM', 'NAME', 'SIG', 'Q', 'DAYS', 'REFILLS',
+    'meds': {
+        'REQUIRED_COLUMNS': [ 'PID', 'START_DATE', 'END_DATE', 'RXNORM', 'NAME', 'SIG', 'Q', 'DAYS', 'REFILLS',
                              'Q_TO_TAKE_VALUE', 'Q_TO_TAKE_UNIT', 'FREQUENCY_VALUE', 'FREQUENCY_UNIT'],
         'DEFAULT_VALUES': {
-            'ID': 0,
+            
             'PID': 0,
             'START_DATE': 'NaT',  # Default start date
             'END_DATE': 'NaT',  # End date may be optional
@@ -89,7 +89,6 @@ FILE_CONFIG = {
             'FREQUENCY_UNIT': 'Unknown'
         },
         'EXPECTED_DATA_TYPES': {
-            'ID': 'int64',
             'PID': 'int64',
             'START_DATE': 'datetime64[ns]',
             'END_DATE': 'datetime64[ns]',  # Optional, could be nullable
@@ -105,69 +104,68 @@ FILE_CONFIG = {
             'FREQUENCY_UNIT': 'object'
         }
     },
-    'familyhistory.txt': {
-        'REQUIRED_COLUMNS': ['ID', 'PID', 'RELATIVE_CODE', 'RELATIVE_TITLE', 'DATE_OF_BIRTH',
+    'familyhistory': {
+        'REQUIRED_COLUMNS': [ 'PID', 'RELATIVE_CODE', 'RELATIVE_TITLE', 'DATE_OF_BIRTH',
                              'DATE_OF_DEATH',
                              'PROBLEM_CODE', 'PROBLEM_TITLE', 'HEIGHT_CM'],
         'DEFAULT_VALUES': {
-            'ID': 0, 'PID': 0, 'RELATIVE_CODE': 'N/A', 'RELATIVE_TITLE': 'Unknown', 'DATE_OF_BIRTH': 'NaT',
+             'PID': 0, 'RELATIVE_CODE': 'N/A', 'RELATIVE_TITLE': 'Unknown', 'DATE_OF_BIRTH': 'NaT',
             'DATE_OF_DEATH': 'NaT', 'PROBLEM_CODE': 'Unknown', 'PROBLEM_TITLE': 'Unknown', 'HEIGHT_CM': 0.0,
         },
         'EXPECTED_DATA_TYPES': {
-            'ID': 'int64', 'PID': 'int64', 'RELATIVE_CODE': 'object', 'RELATIVE_TITLE': 'object',
+             'PID': 'int64', 'RELATIVE_CODE': 'int64', 'RELATIVE_TITLE': 'object',
             'DATE_OF_BIRTH': 'datetime64[ns]', 'DATE_OF_DEATH': 'datetime64[ns]', 'PROBLEM_CODE': 'object',
             'PROBLEM_TITLE': 'object', 'HEIGHT_CM': 'float64',
         }
     },
-    'problems.txt': {
-        'REQUIRED_COLUMNS': ['ID', 'PID', 'START_DATE', 'END_DATE', 'SNOMED', 'NAME'],
+    'problems': {
+        'REQUIRED_COLUMNS': [ 'PID', 'START_DATE', 'END_DATE', 'SNOMED', 'NAME'],
         'DEFAULT_VALUES': {
-            'ID': 0, 'PID': 0, 'START_DATE': 'NaT', 'END_DATE': 'NaT',
-            'SNOMED': 'Unknown', 'NAME': 'Unknown'
+             'PID': 0, 'START_DATE': 'NaT', 'END_DATE': 'NaT',
+            'SNOMED': 0, 'NAME': 'Unknown'
         },
         'EXPECTED_DATA_TYPES': {
-            'ID': 'int64', 'PID': 'int64', 'START_DATE': 'datetime64[ns]',
-            'END_DATE': 'datetime64[ns]', 'SNOMED': 'object', 'NAME': 'object'
+             'PID': 'int64', 'START_DATE': 'datetime64[ns]',
+            'END_DATE': 'datetime64[ns]', 'SNOMED': 'int64', 'NAME': 'object'
         }
     },
-    'procedures.txt': {
-        'REQUIRED_COLUMNS': ['ID', 'PID', 'DATE', 'SNOMED', 'NAME', 'NOTES'],
+    'procedures': {
+        'REQUIRED_COLUMNS': [ 'PID', 'DATE', 'SNOMED', 'NAME', 'NOTES'],
         'DEFAULT_VALUES': {
-            'ID': 0, 'PID': 0, 'DATE': 'NaT',
-            'SNOMED': 'Unknown', 'NAME': 'Unknown', 'NOTES': 'No notes'
+             'PID': 0, 'DATE': 'NaT',
+            'SNOMED': 0, 'NAME': 'Unknown', 'NOTES': 'No notes'
         },
         'EXPECTED_DATA_TYPES': {
-            'ID': 'int64', 'PID': 'int64', 'DATE': 'datetime64[ns]'
-            , 'SNOMED': 'object', 'NAME': 'object', 'NOTES': 'object'
+             'PID': 'int64', 'DATE': 'datetime64[ns]'
+            , 'SNOMED': 'int64', 'NAME': 'object', 'NOTES': 'object'
         }
     },
-    'refills.txt': {
-        'REQUIRED_COLUMNS': ['ID', 'PID', 'DATE', 'RXN', 'DAYS', 'Q'],
+    'refills': {
+        'REQUIRED_COLUMNS': [ 'PID', 'DATE', 'RXN', 'DAYS', 'Q'],
         'DEFAULT_VALUES': {
-            'ID': 0, 'PID': 0, 'DATE': 'NaT',
-            'RXN': 0, 'DAYS': 0, 'Q': 'No notes'
+             'PID': 0, 'DATE': 'NaT',
+            'RXN': 0, 'DAYS': 0, 'Q': 0
         },
         'EXPECTED_DATA_TYPES': {
-            'ID': 'int64', 'PID': 'int64', 'DATE': 'datetime64[ns]',
-            'RXN': 'int64', 'DAYS': 'int64', 'Q': 'object'
+             'PID': 'int64', 'DATE': 'datetime64[ns]',
+            'RXN': 'int64', 'DAYS': 'int64', 'Q': 'int64'
         }
     },
-    'socialhistory.txt': {
-        'REQUIRED_COLUMNS': ['ID', 'PID', 'SMOKINGSTATUSCODE'],
+    'socialhistory': {
+        'REQUIRED_COLUMNS': [ 'PID', 'SMOKINGSTATUSCODE'],
         'DEFAULT_VALUES': {
-            'ID': 0, 'PID': 0, 'SMOKINGSTATUSCODE': 'Unknown'
+             'PID': 0, 'SMOKINGSTATUSCODE': 0
 
         },
         'EXPECTED_DATA_TYPES': {
-            'ID': 'int64', 'PID': 'int64', 'SMOKINGSTATUSCODE': 'object'
+             'PID': 'int64', 'SMOKINGSTATUSCODE':'int64'
         }
     },
-    'vitals.txt': {
-        'REQUIRED_COLUMNS': ['ID', 'PID', 'TIMESTAMP', 'START_DATE', 'END_DATE', 'ENCOUNTER_TYPE', 'HEART_RATE',
+    'vitals': {
+        'REQUIRED_COLUMNS': [ 'PID', 'START_DATE', 'END_DATE', 'ENCOUNTER_TYPE', 'HEART_RATE',
                              'RESPIRATORY_RATE', 'TEMPERATURE', 'WEIGHT', 'HEIGHT', 'BMI', 'SYSTOLIC', 'DIASTOLIC',
                              'OXYGEN_SATURATION', 'HEAD_CIRCUMFERENCE', 'BP_SITE', 'BP_METHOD', 'BP_POSITION'],
         'DEFAULT_VALUES': {
-            'ID': 0,
             'PID': 0,
             'TIMESTAMP': 'NaT',
             'START_DATE': 'NaT',
@@ -188,7 +186,6 @@ FILE_CONFIG = {
             'BP_POSITION': 'N/A'
         },
         'EXPECTED_DATA_TYPES': {
-            'ID': 'int64',
             'PID': 'int64',
             'TIMESTAMP': 'datetime64[ns]',
             'START_DATE': 'datetime64[ns]',

@@ -7,14 +7,14 @@ from data_engineer_task.kafka_streaming_pipeline.config import KAFKA_SERVER, RAW
 
 from data_engineer_task.kafka_streaming_pipeline.utils import delivery_report
 
-logger = setup_logger("FileIngestionPipeline", "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/file_ingestion.log")  # Create a logger for this module
-
+logger = setup_logger("FileIngestionPipeline",
+                      "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/file_ingestion.log")  # Create a logger for this module
 
 class FileIngestionPipeline:
     def __init__(self, input_dir):
         # Constructor to initialize the object with the input directory path
         self.input_dir = input_dir  # Instance attribute
-        self.producer = create_kafka_producer(KAFKA_SERVER)
+        self.producer = create_kafka_producer(KAFKA_SERVER, logger)
         self.topic = RAW_TOPIC
 
     # Method to iterate over the files in the provided directory
