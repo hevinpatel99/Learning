@@ -1,6 +1,5 @@
 import os
 import subprocess
-from kafka_streaming_pipeline import file_ingestion, data_validation, data_transformation, data_loading
 
 # List of scripts to run in order
 scripts = [

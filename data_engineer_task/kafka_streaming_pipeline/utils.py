@@ -60,6 +60,7 @@ def create_kafka_consumer(bootstrap_servers, group_id, logger, auto_offset_reset
             'bootstrap.servers': bootstrap_servers,
             'group.id': group_id,
             'auto.offset.reset': auto_offset_reset,
+            'enable.auto.commit': False
         }
 
         consumer = Consumer(consumer_config)

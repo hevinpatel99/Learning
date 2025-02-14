@@ -117,7 +117,6 @@ class DataValidation:
         if not invalid_emails.empty:
             logger.error(f"Invalid email format found in rows: {invalid_emails.index.tolist()}")
             return False
-
         return True
 
     def _validate_data_types(self, expected_data_types):
@@ -133,6 +132,7 @@ class DataValidation:
                         self.data_frame[col] = pd.to_numeric(self.data_frame[col], errors='coerce').astype(
                             'int64')  # for nullable integers
                         self.data_frame[col] = self.data_frame[col].fillna(0)
+
                     # elif expected_type in ['datetime64[ns]', 'datetime64[D]']:
                     #     # Print sample of current values for debugging
                     #     logger.info(

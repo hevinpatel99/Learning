@@ -1,6 +1,6 @@
 import os
 import time
-from confluent_kafka import Producer, KafkaException
+from confluent_kafka import  KafkaException
 from data_engineer_task.kafka_streaming_pipeline.utils import setup_logger, create_kafka_producer
 
 from data_engineer_task.kafka_streaming_pipeline.config import KAFKA_SERVER, RAW_TOPIC, INPUT_DIR
@@ -9,6 +9,7 @@ from data_engineer_task.kafka_streaming_pipeline.utils import delivery_report
 
 logger = setup_logger("FileIngestionPipeline",
                       "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/file_ingestion.log")  # Create a logger for this module
+
 
 class FileIngestionPipeline:
     def __init__(self, input_dir):
