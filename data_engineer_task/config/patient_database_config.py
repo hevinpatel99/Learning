@@ -1,3 +1,27 @@
+"""
+Module: patient_database_config
+
+This module defines the `TABLE_CONFIG` dictionary, which specifies the schema
+for various patient-related tables in a healthcare database. Each table is
+represented as a dictionary, where the keys are column names and the values
+represent the corresponding SQL data types.
+
+Tables included:
+- `patient_allergies`: Stores patient allergy information.
+- `patient_info`: Stores general patient demographic details.
+- `patient_diagnoses`: Records patient diagnoses.
+- `patient_procedure`: Tracks medical procedures performed on patients.
+- `patient_refills`: Logs prescription refill details.
+- `patient_labs`: Stores lab test results for patients.
+- `patient_meds`: Tracks prescribed medications and their details.
+- `patient_family_history`: Records family medical history of patients.
+- `patient_vitals`: Stores vital sign measurements.
+- `patient_social_history`: Captures social history data like smoking status.
+
+This configuration is intended to be used for database schema definition
+or ORM-based table creation.
+"""
+
 TABLE_CONFIG = {
     "patient_allergies": {
         "ID": "INT PRIMARY KEY",

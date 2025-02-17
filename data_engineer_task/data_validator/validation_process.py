@@ -2,11 +2,12 @@ import os
 
 import pandas as pd
 
-from data_engineer_task.config.file_validation_config import FILE_CONFIG  # Import the file configuration
+from data_engineer_task.config.patient_file_validation_config import FILE_CONFIG
+from data_engineer_task.kafka_streaming_pipeline.config import LOG_FILE_PATH
 from data_engineer_task.kafka_streaming_pipeline.utils import setup_logger
 
 logger = setup_logger("DataValidation",
-                      "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/file_validation.log")  # Create a logger for this module
+                      LOG_FILE_PATH + "file_validation.log")  # Create a logger for this module
 
 
 class DataValidation:

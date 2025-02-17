@@ -6,70 +6,76 @@ import pandas as pd
 from cassandra.cluster import Cluster
 from confluent_kafka import KafkaException, KafkaError
 
-from data_engineer_task.config.casandra_table_config import TABLE_CONFIG
-from data_engineer_task.kafka_streaming_pipeline.config import KAFKA_SERVER, SANITIZED_TOPIC
+from data_engineer_task.config.patient_database_config import TABLE_CONFIG
+from data_engineer_task.kafka_streaming_pipeline.config import KAFKA_SERVER, SANITIZED_TOPIC, LOG_FILE_PATH
 from data_engineer_task.kafka_streaming_pipeline.utils import setup_logger, create_kafka_consumer
 
+# Setup logger
 logger = setup_logger("DataLoadingProcess",
-                      "/home/dev1070/Hevin_1070/hevin.softvan@gmail.com/projects/Python_Workspace/Learning/data_engineer_task/logs_files/data_loading.log")  # Create a logger for this module
+                      LOG_FILE_PATH + "data_loading.log")  # Create a logger for this module
 
 
-# This class use for the insert data into cassandra database
 class DataLoadingProcess:
+    """Consumes sanitized data from Kafka and inserts it into a Cassandra database."""
 
     def __init__(self, keyspace='healthcare_data'):
         self.consumer = create_kafka_consumer(
-            KAFKA_SERVER, "valid-consumer-group", logger
-        )
-        self.cluster = Cluster(['127.0.0.1'], port=9042)  # or ['172.23.0.4']
+            "valid-consumer-group", logger
+        )  # Kafka producer instance
+
+        # Connect cassandra cluster
+        self.cluster = Cluster(['127.0.0.1'], port=9042)
         self.session = self.cluster.connect()
-        self.create_keyspace_if_not_exists(keyspace)
+
+        # Ensure keyspace exists; create it if not
+        self.create_keyspace_if_not_exists(keyspace)  # Create keyspace(database)
         self.session.set_keyspace(keyspace)
-        self.sanitized_topic = SANITIZED_TOPIC
+
+        self.sanitized_topic = SANITIZED_TOPIC  # Source topic for raw messages consume
 
     def create_keyspace_if_not_exists(self, keyspace):
+        """Checks if the keyspace exists. If not, creates it"""
         try:
-            # Check if the keyspace exists by running a query (this will fail if the keyspace doesn't exist)
             self.session.execute(f"USE {keyspace}")
         except Exception as e:
             logger.info(f"Critical error during message production: {e}")
             # If it doesn't exist, catch the exception and create the keyspace
-            print(f"Keyspace '{keyspace}' does not exist. Creating it now...")
+            logger.info(f"Keyspace '{keyspace}' does not exist. Creating it now...")
             self.create_keyspace(keyspace)
         pass
 
     def create_keyspace(self, keyspace):
-        """Create the keyspace with NetworkTopologyStrategy (for multi-node clusters)."""
+        """Create the keyspace."""
         try:
             create_keyspace_query = f"""
             CREATE KEYSPACE IF NOT EXISTS {keyspace}
             WITH replication = {{'class': 'NetworkTopologyStrategy', 'datacenter1': 3}};
             """
             self.session.execute(create_keyspace_query)
-
-            print(f"Keyspace '{keyspace}' created successfully.")
+            logger.info(f"Keyspace '{keyspace}' created successfully.")
         except Exception as e:
             print(f"Error creating keyspace '{keyspace}': {e}")
 
     def consume_messages(self):
+        """Consumes sanitized messages from Kafka and inserts them into Cassandra."""
+
         idle_count = 0
         idle_threshold = 10  # Stop after 10 consecutive idle polls
+
         try:
             # Subscribe to the Kafka topic
             self.consumer.subscribe([self.sanitized_topic])
 
             logger.info(f"Consumer subscribed to topic: {self.sanitized_topic}")
 
-            # Poll messages from Kafka
             while True:
                 # Poll for messages from Kafka
                 msg = self.consumer.poll(timeout=1.0)  # Timeout is in seconds
 
                 if msg is None:
-                    print(idle_count)
-                    # No message received within the timeout period
+                    # Check no message received within the timeout period
                     idle_count += 1
-                    logger.info("No message received within timeout.")
+                    logger.info(f"No message received within {idle_count} timeout.")
                     if idle_count >= idle_threshold:
                         logger.info("No new messages detected. Stopping the consumer.")
                         break
@@ -83,23 +89,17 @@ class DataLoadingProcess:
                     else:
                         raise KafkaException(msg.error())
                 else:
-                    idle_count = 0
-                    # Process the message (e.g., print, log, etc.)
+
+                    idle_count = 0  # Reset idle counter on successful message receiving
                     logger.info(f"Received message from topic: {msg.topic()}, partition: {msg.partition()}, "
                                 f"offset: {msg.offset()} with key: {msg.key().decode('utf-8')}")
 
-                    key = msg.key()
-                    file_name = key.decode("utf-8") if key else None
+                    file_name = msg.key().decode('utf-8') if msg.key() else None
 
-                    # file_name = key.decode('utf-8') if key else None
-
-                    value = msg.value()
-                    input_file_content = value.decode("utf-8") if value else None
-
-                    print(f"file content : {type(input_file_content)} || {input_file_content}")
+                    file_content = msg.value().decode('utf-8') if msg.value() else None
 
                     # Process the file content
-                    self.process_data_insertion(input_file_content, file_name)
+                    self.process_data_insertion(file_content, file_name)
 
                     try:
                         self.consumer.commit(asynchronous=False)
@@ -115,14 +115,16 @@ class DataLoadingProcess:
             logger.info("Consumer closed successfully.")
 
     def process_data_insertion(self, input_file_content, file_name):
+        """Processes and sanitizes the incoming data before inserting it into Cassandra."""
         try:
-            logger.info(f"Processing file: {file_name} from text to CSV.")
+            logger.info(f"Processing file: {file_name}.")
 
             if not input_file_content:
                 logger.error("Received empty file content.")
                 return
 
             try:
+                # Convert content into DataFrame
                 data_frame = pd.read_json(StringIO(input_file_content), lines=True)
             except ValueError as e:
                 logger.error(f"Error parsing  data: {e}")
@@ -132,11 +134,13 @@ class DataLoadingProcess:
                 logger.warning("Received an empty DataFrame after  parsing. Skipping processing.")
                 return
 
-            # Ensure column names are in uppercase
+            # Convert headers to uppercase
             data_frame.columns = [col.upper() for col in data_frame.columns]
 
+            # Standardize column names
             data_frame.rename(columns={"Q": "QUANTITY"}, inplace=True)
 
+            # Formate the date column in cassandra datatype
             date_columns = ['DOB', 'START_DATE', 'END_DATE', 'DATE', 'DATE_OF_BIRTH', 'DATE_OF_DEATH', 'TIMESTAMP']
 
             # Check if any column from 'date_columns' exists in the DataFrame
@@ -152,47 +156,68 @@ class DataLoadingProcess:
             logger.error(f"Error processing file {file_name}: {e}")
 
     def insert_data_in_storage(self, file_name, data_frame):
+        """Determines the correct Cassandra table for the data and inserts it."""
 
         name = os.path.splitext(file_name)[0]
 
-        if name == "allergies":
-            table_name = "patient_allergies"
-            self.process_data(data_frame, table_name)
-        elif name == "patients":
-            table_name = "patient_info"
-            self.process_data(data_frame, table_name)
-        elif name == "familyhistory":
-            table_name = "patient_family_history"
-            self.process_data(data_frame, table_name)
-        elif name == "problems":
-            table_name = "patient_diagnoses"
-            self.process_data(data_frame, table_name)
-        elif name == "procedures":
-            table_name = "patient_procedure"
-            self.process_data(data_frame, table_name)
-        elif name == "refills":
-            table_name = "patient_refills"
-            self.process_data(data_frame, table_name)
-        elif name == "labs":
-            table_name = "patient_labs"
-            self.process_data(data_frame, table_name)
-        elif name == "meds":
-            table_name = "patient_meds"
-            self.process_data(data_frame, table_name)
-        elif name == "vitals":
-            table_name = "patient_vitals"
-            self.process_data(data_frame, table_name)
-        elif name == "socialhistory":
-            table_name = "patient_social_history"
+        # if name == "allergies":
+        #     table_name = "patient_allergies"
+        #     self.process_data(data_frame, table_name)
+        # elif name == "patients":
+        #     table_name = "patient_info"
+        #     self.process_data(data_frame, table_name)
+        # elif name == "familyhistory":
+        #     table_name = "patient_family_history"
+        #     self.process_data(data_frame, table_name)
+        # elif name == "problems":
+        #     table_name = "patient_diagnoses"
+        #     self.process_data(data_frame, table_name)
+        # elif name == "procedures":
+        #     table_name = "patient_procedure"
+        #     self.process_data(data_frame, table_name)
+        # elif name == "refills":
+        #     table_name = "patient_refills"
+        #     self.process_data(data_frame, table_name)
+        # elif name == "labs":
+        #     table_name = "patient_labs"
+        #     self.process_data(data_frame, table_name)
+        # elif name == "meds":
+        #     table_name = "patient_meds"
+        #     self.process_data(data_frame, table_name)
+        # elif name == "vitals":
+        #     table_name = "patient_vitals"
+        #     self.process_data(data_frame, table_name)
+        # elif name == "socialhistory":
+        #     table_name = "patient_social_history"
+        #     self.process_data(data_frame, table_name)
+        # else:
+        #     print(f"No file found...")
+
+        table_mapping = {
+            "allergies": "patient_allergies",
+            "patients": "patient_info",
+            "familyhistory": "patient_family_history",
+            "problems": "patient_diagnoses",
+            "procedures": "patient_procedure",
+            "refills": "patient_refills",
+            "labs": "patient_labs",
+            "meds": "patient_meds",
+            "vitals": "patient_vitals",
+            "socialhistory": "patient_social_history",
+        }
+        table_name = table_mapping.get(name)
+
+        if table_name:
             self.process_data(data_frame, table_name)
         else:
-            print(f"No file found...")
+            logger.warning(f"No matching table found for file: {file_name}")
 
     def process_data(self, data_frame, table_name):
+        """Processes and inserts data into the specified Cassandra table."""
         config = TABLE_CONFIG.get(table_name, {})
         self.create_table_dynamically(config, table_name)
 
-        # ✅ Iterate through DataFrame rows and insert each row as a dictionary
+        # Iterate through DataFrame rows and insert each row as a dictionary
         if isinstance(data_frame, pd.DataFrame):
             for _, row in data_frame.iterrows():
                 self.insert_data_into_table(table_name, row.to_dict())  # ✅ Convert row to dict
@@ -202,7 +227,7 @@ class DataLoadingProcess:
             print(f"Invalid data type for '{table_name}': {type(data_frame)}")
 
     def create_table_dynamically(self, config, table_name):
-        """Creates a table dynamically from a  config file."""
+        """Creates a table dynamically from a config file."""
 
         if not config:
             print(f"No configuration found for table '{table_name}'")
@@ -215,23 +240,15 @@ class DataLoadingProcess:
         self.session.execute(create_table_query)
         print(f"Table '{table_name}' created successfully!")
 
-        # Execute query
-        self.session.execute(create_table_query)
-        print(f"Table '{table_name}' created successfully!")
-
     def insert_data_into_table(self, table_name, data):
-        """
-        Insert data dynamically into a Cassandra table.
-        :param table_name: Name of the table
-        :param data: Dictionary containing column-value pairs
-        """
+        """Inserts a record into the specified Cassandra table."""
+
         config = TABLE_CONFIG.get(table_name)
         if not config:
             print(f"No configuration found for table '{table_name}'")
             return
 
         # Ensure 'ID' is present; if not, generate a unique UUID
-
         if 'ID' in config:
             if "ID" not in data:
                 data["ID"] = uuid.uuid4()  # Generates a unique ID
